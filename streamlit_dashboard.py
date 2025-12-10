@@ -244,7 +244,7 @@ def get_top_bottom(df, score_col, n):
 # MAIN APP
 # ============================================================
 def main():
-    st.title("🏫 School Performance Dashboard")
+    st.title("School Performance Dashboard")
     st.markdown("### Comprehensive Analysis with Exploratory Data Analysis")
     
     try:
@@ -282,10 +282,10 @@ def main():
     st.markdown("---")
     cols = st.columns(4)
     metrics = [
-        ("🏗️ Infrastructure", "Infrastructure_Score"),
-        ("🛡️ Safety", "Safety_Score"),
-        ("🎓 Facilities", "Facilities_Score"),
-        ("🏆 Total", "Total_Performance")
+        (" Infrastructure", "Infrastructure_Score"),
+        (" Safety", "Safety_Score"),
+        (" Facilities", "Facilities_Score"),
+        (" Total", "Total_Performance")
     ]
     for col, (label, score_col) in zip(cols, metrics):
         avg = filtered_df[score_col].mean()
