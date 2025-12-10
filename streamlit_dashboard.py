@@ -74,7 +74,7 @@ def label_readiness(score):
 @st.cache_data
 def load_and_prepare_data():
     """Load and prepare the dataset with all score calculations"""
-    csv_path = "/Users/robbannn/Desktop/SEM_5/DV_PROJECT/public-census_oct_2018.csv"
+    csv_path = "public-census_oct_2018.csv"
     df = pd.read_csv(csv_path, low_memory=False)
     df.columns = df.columns.str.strip()
     
