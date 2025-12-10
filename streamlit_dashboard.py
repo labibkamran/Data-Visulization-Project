@@ -305,27 +305,28 @@ def main():
         
         # Overview
         with perf_tabs[0]:
-            st.header("Score Distributions")
-            fig = make_subplots(rows=2, cols=2, subplot_titles=[
-                'Infrastructure', 'Safety', 'Facilities', 'Total Performance'
-            ])
-            scores = ['Infrastructure_Score', 'Safety_Score', 'Facilities_Score', 'Total_Performance']
-            colors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12']
-            for i, (score, color) in enumerate(zip(scores, colors)):
-                fig.add_trace(go.Histogram(x=filtered_df[score], marker_color=color, opacity=0.7, nbinsx=25),
-                             row=i//2+1, col=i%2+1)
-            fig.update_layout(height=600, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            # ===== DISTRICT-WISE COMPARISON (MOVED TO TOP) =====
+            st.header("District-wise Average Scores Comparison")
             
-            # ===== DISTRICT-WISE COMPARISON =====
-            st.markdown("---")
-            st.subheader("📍 District-wise Average Scores Comparison")
+            # User controls
+            ctrl_c1, ctrl_c2, ctrl_c3 = st.columns(3)
+            with ctrl_c1:
+                num_districts = st.slider("Number of districts to show", 5, 36, 15, key="district_num")
+            with ctrl_c2:
+                sort_by_score = st.selectbox("Sort by", 
+                    ['Total_Performance', 'Infrastructure_Score', 'Safety_Score', 'Facilities_Score'],
+                    key="district_sort")
+            with ctrl_c3:
+                sort_order = st.radio("Order", ["Top (Best)", "Bottom (Worst)"], horizontal=True, key="district_order")
             
             scores = ['Infrastructure_Score', 'Safety_Score', 'Facilities_Score', 'Total_Performance']
             colors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12']
             
             district_avg = filtered_df.groupby('district')[scores].mean().reset_index()
-            district_avg = district_avg.sort_values('Total_Performance', ascending=False).head(15)
+            if sort_order == "Top (Best)":
+                district_avg = district_avg.sort_values(sort_by_score, ascending=False).head(num_districts)
+            else:
+                district_avg = district_avg.sort_values(sort_by_score, ascending=True).head(num_districts)
             
             fig_district = go.Figure()
             for score, color in zip(scores, colors):
@@ -336,10 +337,11 @@ def main():
                     marker_color=color
                 ))
             
+            title_order = "Best" if sort_order == "Top (Best)" else "Worst"
             fig_district.update_layout(
                 barmode='group',
                 height=550,
-                title="Top 15 Districts by Average Total Performance",
+                title=f"{title_order} {num_districts} Districts by {sort_by_score.replace('_', ' ')}",
                 xaxis_title="District",
                 yaxis_title="Average Score",
                 hovermode='x unified',
@@ -349,7 +351,8 @@ def main():
             st.plotly_chart(fig_district, use_container_width=True)
             
             # ===== RESOURCE AVAILABILITY HEATMAP =====
-            st.subheader("🔥 Resource Availability Heatmap by Location")
+            st.markdown("---")
+            st.subheader("Resource Availability Heatmap by Location")
             
             if "school_location" in filtered_df.columns:
                 resource_cols = ["electricity", "drink_water", "usable_toilets", "boundary_wall_state", "main_gate"]
@@ -366,6 +369,20 @@ def main():
                 ))
                 fig_heatmap.update_layout(height=350, title="Resource Availability by Location (Urban/Rural)")
                 st.plotly_chart(fig_heatmap, use_container_width=True)
+            
+            # ===== SCORE DISTRIBUTIONS (MOVED BELOW) =====
+            st.markdown("---")
+            st.subheader("Score Distributions")
+            fig = make_subplots(rows=2, cols=2, subplot_titles=[
+                'Infrastructure', 'Safety', 'Facilities', 'Total Performance'
+            ])
+            scores = ['Infrastructure_Score', 'Safety_Score', 'Facilities_Score', 'Total_Performance']
+            colors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12']
+            for i, (score, color) in enumerate(zip(scores, colors)):
+                fig.add_trace(go.Histogram(x=filtered_df[score], marker_color=color, opacity=0.7, nbinsx=25),
+                             row=i//2+1, col=i%2+1)
+            fig.update_layout(height=600, showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
         
         # Infrastructure
         with perf_tabs[1]:
@@ -428,7 +445,8 @@ def main():
             " Sports & Labs",
             " Staff & Students",
             " Timeline",
-            " PCA Analysis"
+            " PCA Analysis",
+            " KPK Analysis"
         ])
         
         # ---------- DEMOGRAPHICS ----------
@@ -1041,6 +1059,294 @@ def main():
                     st.warning("Not enough data for PCA analysis")
             else:
                 st.warning("Not enough facility columns for PCA")
+        
+        # ---------- KPK ANALYSIS ----------
+        with eda_tabs[7]:
+            st.header("KPK Non-Functional Schools Analysis (2021)")
+            st.markdown("*Analysis of Government Primary and Middle Schools in KPK Province*")
+            
+            # Load KPK data
+            @st.cache_data
+            def load_kpk_data():
+                # Try multiple paths
+                primary_paths = [
+                    "number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv",
+                    "non-asher-cleaned/number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv",
+                    "NON_ASER_EXCEL_SHEETS/number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv"
+                ]
+                middle_paths = [
+                    "number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv",
+                    "non-asher-cleaned/number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv",
+                    "NON_ASER_EXCEL_SHEETS/number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv"
+                ]
+                
+                primary = None
+                middle = None
+                
+                for path in primary_paths:
+                    try:
+                        primary = pd.read_csv(path, encoding='latin1')
+                        break
+                    except:
+                        continue
+                
+                for path in middle_paths:
+                    try:
+                        middle = pd.read_csv(path, encoding='latin1')
+                        break
+                    except:
+                        continue
+                
+                if primary is None or middle is None:
+                    return None, None
+                
+                try:
+                    # Clean column names
+                    if primary.columns[0].startswith('\ufeff'):
+                        primary.rename(columns={primary.columns[0]: "District"}, inplace=True)
+                    elif 'District' not in primary.columns:
+                        primary.rename(columns={primary.columns[0]: "District"}, inplace=True)
+                        
+                    if middle.columns[0].startswith('\ufeff'):
+                        middle.rename(columns={middle.columns[0]: "District"}, inplace=True)
+                    elif 'District' not in middle.columns:
+                        middle.rename(columns={middle.columns[0]: "District"}, inplace=True)
+                    
+                    # Clean primary
+                    primary = primary.dropna(subset=['District']).copy()
+                    for col in ['Male', 'Female', 'Total']:
+                        if col in primary.columns:
+                            primary[col] = pd.to_numeric(primary[col], errors='coerce').fillna(0)
+                    primary['Level'] = 'Primary'
+                    primary['female_share'] = primary['Female'] / primary['Total'].replace(0, np.nan)
+                    primary['male_share'] = primary['Male'] / primary['Total'].replace(0, np.nan)
+                    
+                    # Clean middle
+                    middle = middle.dropna(subset=['District']).copy()
+                    for col in ['Male', 'Female', 'Total']:
+                        if col in middle.columns:
+                            middle[col] = pd.to_numeric(middle[col], errors='coerce').fillna(0)
+                    middle['Level'] = 'Middle'
+                    middle['female_share'] = middle['Female'] / middle['Total'].replace(0, np.nan)
+                    middle['male_share'] = middle['Male'] / middle['Total'].replace(0, np.nan)
+                    
+                    return primary, middle
+                except Exception as e:
+                    st.error(f"Error processing KPK data: {e}")
+                    return None, None
+            
+            primary, middle = load_kpk_data()
+            
+            if primary is not None and middle is not None:
+                # Calculate totals
+                primary_totals = primary[['Male', 'Female', 'Total']].sum()
+                middle_totals = middle[['Male', 'Female', 'Total']].sum()
+                
+                # Summary metrics
+                st.subheader("Overall Summary")
+                mc1, mc2, mc3, mc4 = st.columns(4)
+                mc1.metric("Primary Non-Functional", f"{int(primary_totals['Total']):,}")
+                mc2.metric("Middle Non-Functional", f"{int(middle_totals['Total']):,}")
+                mc3.metric("Total Non-Functional", f"{int(primary_totals['Total'] + middle_totals['Total']):,}")
+                mc4.metric("Female Share (Primary)", f"{primary_totals['Female']/primary_totals['Total']*100:.1f}%")
+                
+                # Create tabs for KPK analysis
+                kpk_tabs = st.tabs(["Level Comparison", "Gender Analysis", "District Analysis", "Pipeline Analysis", "Severity"])
+                
+                # --- TAB 1: LEVEL COMPARISON ---
+                with kpk_tabs[0]:
+                    st.subheader("Primary vs Middle Non-Functional Schools")
+                    
+                    # Summary by level
+                    summary_levels = pd.DataFrame({
+                        'Level': ['Primary', 'Middle'],
+                        'Total': [primary_totals['Total'], middle_totals['Total']],
+                        'Male': [primary_totals['Male'], middle_totals['Male']],
+                        'Female': [primary_totals['Female'], middle_totals['Female']],
+                    })
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        # Bar chart - total by level
+                        fig = px.bar(summary_levels, x='Level', y='Total',
+                                    title="Total Non-Functional Schools by Level",
+                                    color='Level', color_discrete_map={'Primary': '#3498db', 'Middle': '#e74c3c'})
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    with c2:
+                        # Pie chart - gender breakdown
+                        gender_summary = pd.DataFrame({
+                            'Category': ['Primary - Male', 'Primary - Female', 'Middle - Male', 'Middle - Female'],
+                            'Count': [primary_totals['Male'], primary_totals['Female'], 
+                                     middle_totals['Male'], middle_totals['Female']]
+                        })
+                        fig = px.pie(gender_summary, values='Count', names='Category',
+                                    title="Gender Breakdown by Level", hole=0.3)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Stacked bar by district
+                    st.subheader("Non-Functional Schools by District and Level")
+                    combined = pd.concat([primary, middle])
+                    
+                    fig = go.Figure()
+                    for level, color in [('Primary', '#3498db'), ('Middle', '#e74c3c')]:
+                        level_data = combined[combined['Level'] == level]
+                        fig.add_trace(go.Bar(
+                            x=level_data['District'], y=level_data['Total'],
+                            name=level, marker_color=color
+                        ))
+                    fig.update_layout(barmode='group', xaxis_tickangle=-45, height=500,
+                                     title="Primary vs Middle Schools by District")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # --- TAB 2: GENDER ANALYSIS ---
+                with kpk_tabs[1]:
+                    st.subheader("Gender Analysis of Non-Functional Schools")
+                    
+                    c1, c2 = st.columns(2)
+                    
+                    with c1:
+                        # Primary gender breakdown
+                        primary_sorted = primary.sort_values('Total', ascending=False)
+                        fig = go.Figure()
+                        fig.add_trace(go.Bar(x=primary_sorted['District'], y=primary_sorted['Male'], name='Male', marker_color='steelblue'))
+                        fig.add_trace(go.Bar(x=primary_sorted['District'], y=primary_sorted['Female'], name='Female', marker_color='lightcoral'))
+                        fig.update_layout(barmode='stack', title="Primary Schools - Gender Breakdown",
+                                         xaxis_tickangle=-45, height=450)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    with c2:
+                        # Middle gender breakdown
+                        middle_sorted = middle.sort_values('Total', ascending=False)
+                        fig = go.Figure()
+                        fig.add_trace(go.Bar(x=middle_sorted['District'], y=middle_sorted['Male'], name='Male', marker_color='steelblue'))
+                        fig.add_trace(go.Bar(x=middle_sorted['District'], y=middle_sorted['Female'], name='Female', marker_color='lightcoral'))
+                        fig.update_layout(barmode='stack', title="Middle Schools - Gender Breakdown",
+                                         xaxis_tickangle=-45, height=450)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Female share line chart
+                    st.subheader("Female Share Comparison")
+                    combined_gender = pd.concat([
+                        primary[['District', 'female_share', 'Level']],
+                        middle[['District', 'female_share', 'Level']]
+                    ])
+                    fig = px.line(combined_gender, x='District', y='female_share', color='Level',
+                                 title="Female Share of Non-Functional Schools by District",
+                                 markers=True)
+                    fig.add_hline(y=0.5, line_dash="dash", line_color="red", annotation_text="50% line")
+                    fig.update_layout(xaxis_tickangle=-45, height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # --- TAB 3: DISTRICT ANALYSIS ---
+                with kpk_tabs[2]:
+                    st.subheader("District-wise Non-Functional Schools")
+                    
+                    # Create district summary
+                    district_summary = combined.pivot_table(
+                        index='District', columns='Level',
+                        values=['Total', 'Male', 'Female'], aggfunc='sum'
+                    ).fillna(0)
+                    district_summary.columns = ['_'.join(col) for col in district_summary.columns]
+                    district_summary = district_summary.reset_index()
+                    district_summary['Total_All'] = district_summary.get('Total_Primary', 0) + district_summary.get('Total_Middle', 0)
+                    
+                    # Top districts selector
+                    top_n = st.slider("Number of districts to display", 5, 25, 15, key="kpk_district_slider")
+                    
+                    top_districts = district_summary.nlargest(top_n, 'Total_All')
+                    
+                    fig = go.Figure()
+                    if 'Total_Primary' in top_districts.columns:
+                        fig.add_trace(go.Bar(x=top_districts['District'], y=top_districts['Total_Primary'], name='Primary', marker_color='#3498db'))
+                    if 'Total_Middle' in top_districts.columns:
+                        fig.add_trace(go.Bar(x=top_districts['District'], y=top_districts['Total_Middle'], name='Middle', marker_color='#e74c3c'))
+                    
+                    fig.update_layout(barmode='group', title=f"Top {top_n} Districts by Non-Functional Schools",
+                                     xaxis_tickangle=-45, height=500)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # --- TAB 4: PIPELINE ANALYSIS ---
+                with kpk_tabs[3]:
+                    st.subheader("Education Pipeline Analysis (Primary → Middle)")
+                    
+                    # Prepare pipeline data
+                    district_summary['ratio_middle_to_primary'] = (
+                        district_summary.get('Total_Middle', 0) / district_summary.get('Total_Primary', 1).replace(0, np.nan)
+                    )
+                    district_summary = district_summary.replace([np.inf, -np.inf], np.nan)
+                    
+                    c1, c2 = st.columns(2)
+                    
+                    with c1:
+                        # Slope chart
+                        st.markdown("**Pipeline Direction (Top Districts)**")
+                        slope_df = pd.melt(
+                            district_summary.nlargest(10, 'Total_All'),
+                            id_vars='District',
+                            value_vars=['Total_Primary', 'Total_Middle'],
+                            var_name='Level', value_name='Total'
+                        )
+                        slope_df['Level'] = slope_df['Level'].str.replace('Total_', '')
+                        
+                        fig = go.Figure()
+                        for district in slope_df['District'].unique():
+                            d = slope_df[slope_df['District'] == district]
+                            fig.add_trace(go.Scatter(x=d['Level'], y=d['Total'], mode='lines+markers', name=district))
+                        fig.update_layout(title="Primary → Middle Pipeline", height=450, hovermode='x unified')
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    with c2:
+                        # Middle-to-Primary ratio
+                        st.markdown("**Middle/Primary Ratio by District**")
+                        ratio_df = district_summary.dropna(subset=['ratio_middle_to_primary']).sort_values('ratio_middle_to_primary', ascending=True)
+                        
+                        fig = go.Figure(go.Bar(
+                            y=ratio_df['District'], x=ratio_df['ratio_middle_to_primary'],
+                            orientation='h', marker_color='purple'
+                        ))
+                        fig.add_vline(x=1.0, line_dash="dash", line_color="red", annotation_text="Ratio = 1")
+                        fig.update_layout(title="Middle/Primary Ratio", height=500)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Insight
+                    high_ratio_districts = len(district_summary[district_summary['ratio_middle_to_primary'] > 1])
+                    st.info(f"**Insight:** {high_ratio_districts} districts have more non-functional middle schools than primary schools (ratio > 1), indicating pipeline breakdown at higher education levels.")
+                
+                # --- TAB 5: SEVERITY CLASSIFICATION ---
+                with kpk_tabs[4]:
+                    st.subheader("Severity Classification of Districts")
+                    
+                    # Classify districts
+                    district_summary_clean = district_summary.dropna(subset=['Total_All'])
+                    if len(district_summary_clean) > 0:
+                        district_summary_clean['Severity'] = pd.qcut(
+                            district_summary_clean['Total_All'], q=3, labels=['Low', 'Medium', 'High']
+                        )
+                        
+                        # Severity bar chart
+                        severity_sorted = district_summary_clean.sort_values('Total_All', ascending=False)
+                        color_map = {'High': '#e74c3c', 'Medium': '#f39c12', 'Low': '#2ecc71'}
+                        
+                        fig = go.Figure(go.Bar(
+                            x=severity_sorted['District'],
+                            y=severity_sorted['Total_All'],
+                            marker_color=[color_map.get(s, 'gray') for s in severity_sorted['Severity']]
+                        ))
+                        fig.update_layout(title="Districts by Severity (Total Non-Functional Schools)",
+                                         xaxis_tickangle=-45, height=500)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Severity summary
+                        severity_counts = severity_sorted['Severity'].value_counts()
+                        sc1, sc2, sc3 = st.columns(3)
+                        sc1.metric("High Severity Districts", severity_counts.get('High', 0), delta_color="inverse")
+                        sc2.metric("Medium Severity Districts", severity_counts.get('Medium', 0))
+                        sc3.metric("Low Severity Districts", severity_counts.get('Low', 0))
+                        
+                        st.warning("**High-severity districts** contribute disproportionately to total non-functional schools and require priority intervention.")
+            else:
+                st.error("Could not load KPK data files. Please ensure CSV files are in 'non-asher-cleaned/' folder.")
     
     # Footer
     st.markdown("---")
