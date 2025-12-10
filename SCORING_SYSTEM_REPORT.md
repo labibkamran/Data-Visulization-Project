@@ -1,78 +1,7 @@
 # School Performance Scoring System - Technical Report
 ## Data Visualization Project | Public Census Dataset Analysis
 
----
 
-## 1. Introduction
-
-In this project, we analyzed the **public-census_oct_2018.csv** dataset containing school records. We created several **derived metrics** and **scoring systems** to evaluate school performance across multiple dimensions. This report explains exactly how each score was calculated.
-
----
-
-## 2. Normalization Function
-
-Before calculating scores, we use a **Min-Max Normalization** function to scale values between 0 and 1:
-
-```
-normalize(x) = (x - min(x)) / (max(x) - min(x))
-```
-
-If `max = min`, the result is 0 (to avoid division by zero).
-
----
-
-## 3. Derived Metrics
-
-These are new columns we calculated from existing data:
-
-### 3.1 Students Per Classroom
-**Purpose:** Measures classroom crowding
-
-```
-students_per_classroom = enrollment / functional_classrooms
-```
-- If `functional_classrooms = 0`, result is `NaN` (undefined)
-
----
-
-### 3.2 Usable Toilets Per 100 Students
-**Purpose:** Measures toilet availability relative to student population
-
-```
-usable_toilets_per_100 = (usable_toilets / enrollment) × 100
-```
-- If `enrollment = 0`, result is `NaN`
-
----
-
-### 3.3 Computers Per 100 Students
-**Purpose:** Measures digital resource availability
-
-```
-computers_per_100 = (total_computers / enrollment) × 100
-```
-- If `enrollment = 0`, result is `NaN`
-
----
-
-### 3.4 Building Condition Score
-**Purpose:** Converts text-based building condition to a numeric score
-
-| Condition Text | Score |
-|----------------|-------|
-| "Satisfactory", "Good" | 1.0 |
-| "Minor Repair Needed" | 0.5 |
-| "Bad", "Rough", "Major Repair" | 0.0 |
-
----
-
-### 3.5 Teacher-Student Ratio
-**Purpose:** Measures teaching capacity
-
-```
-ts_ratio = enrollment / Teachers
-```
-- If `Teachers = 0`, result is `NaN`
 
 ---
 
@@ -213,18 +142,6 @@ Total_Performance = [
 
 ---
 
-## 6. Data Cleaning Steps
-
-Before computing scores, we cleaned the data:
-
-1. **Binary Column Fix:** Values of `2` or `3` were converted to `0` for columns:
-   - `electricity`, `drink_water`, `boundary_wall_state`, `main_gate`
-
-2. **Numeric Conversion:** All numeric columns were converted using `pd.to_numeric()` with errors ignored
-
-3. **Missing Values:** Filled with `0` for score calculation using `.fillna(0)`
-
-4. **Invalid Text Removal:** Removed values like "1", "2", "3" from reason columns
 
 ---
 
