@@ -383,6 +383,104 @@ def main():
                              row=i//2+1, col=i%2+1)
             fig.update_layout(height=600, showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
+            
+            # ===== PARTY PERFORMANCE COMPARISON =====
+            st.markdown("---")
+            st.subheader("Political Party Performance Comparison (PTI vs PMLN vs Independent)")
+            
+            # Party performance data based on Top/Bottom 5 appearances
+            party_data = {
+                "Category": ["Infrastructure", "Infrastructure", "Infrastructure",
+                            "Safety", "Safety", "Safety",
+                            "Facilities", "Facilities", "Facilities",
+                            "Total", "Total", "Total"],
+                "Party": ["PTI", "PMLN", "Independent"] * 4,
+                "Top_Appearances": [0, 3, 2,   # Infrastructure
+                                   0, 4, 0,   # Safety (PTI in bottom)
+                                   0, 3, 2,   # Facilities
+                                   0, 3, 1],  # Total
+                "Bottom_Appearances": [0, 2, 3,   # Infrastructure
+                                      1, 3, 1,   # Safety
+                                      0, 4, 1,   # Facilities
+                                      0, 2, 3]   # Total
+            }
+            party_df = pd.DataFrame(party_data)
+            
+            # Calculate totals
+            party_totals = party_df.groupby("Party").agg({
+                "Top_Appearances": "sum",
+                "Bottom_Appearances": "sum"
+            }).reset_index()
+            
+            pc1, pc2 = st.columns(2)
+            
+            with pc1:
+                # Overall Top vs Bottom by Party
+                fig_party = go.Figure()
+                fig_party.add_trace(go.Bar(
+                    x=party_totals["Party"],
+                    y=party_totals["Top_Appearances"],
+                    name="Top 5 Appearances",
+                    marker_color="#2ecc71"
+                ))
+                fig_party.add_trace(go.Bar(
+                    x=party_totals["Party"],
+                    y=party_totals["Bottom_Appearances"],
+                    name="Bottom 5 Appearances",
+                    marker_color="#e74c3c"
+                ))
+                fig_party.update_layout(
+                    barmode="group",
+                    title="Overall Party Performance (All Categories)",
+                    xaxis_title="Political Party",
+                    yaxis_title="Number of Appearances",
+                    height=400
+                )
+                st.plotly_chart(fig_party, use_container_width=True)
+            
+            with pc2:
+                # Performance ratio pie
+                party_totals["Net_Performance"] = party_totals["Top_Appearances"] - party_totals["Bottom_Appearances"]
+                party_totals["Performance_Label"] = party_totals.apply(
+                    lambda x: f"{x['Party']}: {'+' if x['Net_Performance'] >= 0 else ''}{int(x['Net_Performance'])}", axis=1
+                )
+                
+                colors_party = {"PTI": "#e74c3c", "PMLN": "#3498db", "Independent": "#2ecc71"}
+                fig_pie = px.pie(
+                    party_totals, 
+                    values=party_totals["Top_Appearances"] + party_totals["Bottom_Appearances"],
+                    names="Party",
+                    title="Party Share of Top/Bottom Appearances",
+                    color="Party",
+                    color_discrete_map=colors_party,
+                    hole=0.4
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+            
+            # Category breakdown
+            st.markdown("**Performance by Category:**")
+            fig_cat = go.Figure()
+            for party in ["PTI", "PMLN", "Independent"]:
+                p_data = party_df[party_df["Party"] == party]
+                fig_cat.add_trace(go.Bar(
+                    x=p_data["Category"],
+                    y=p_data["Top_Appearances"],
+                    name=f"{party} (Top)",
+                    marker_color=colors_party[party],
+                    opacity=0.9
+                ))
+            fig_cat.update_layout(
+                barmode="group",
+                title="Top 5 Appearances by Party & Category",
+                xaxis_title="Category",
+                yaxis_title="Appearances",
+                height=400
+            )
+            st.plotly_chart(fig_cat, use_container_width=True)
+            
+            # Insight
+            best_party = party_totals.loc[party_totals["Net_Performance"].idxmax(), "Party"]
+            st.success(f"**Insight:** Based on Top/Bottom 5 school performance analysis, **{best_party}** has the best net performance across all score categories.")
         
         # Infrastructure
         with perf_tabs[1]:
