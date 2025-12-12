@@ -74,7 +74,7 @@ def label_readiness(score):
 @st.cache_data
 def load_and_prepare_data():
     """Load and prepare the dataset with all score calculations"""
-    csv_path = "public-census_oct_2018.csv"
+    csv_path = "dv_public-census_oct_2018 copy.csv"
     df = pd.read_csv(csv_path, low_memory=False)
     df.columns = df.columns.str.strip()
     
@@ -84,8 +84,8 @@ def load_and_prepare_data():
         "dangerous_classrooms", "dangerous_non_classrooms", "electricity",
         "drink_water", "main_gate", "boundary_wall_state", "security",
         "play_ground", "library", "science_lab", "computer_lab", "internet", 
-        "pp_no", "na_no", "enrollment", "Teachers", "NonTeachers",
-        "total_computers", "total_computer_training_students", "est_year",
+        "provincial_assembly_number", "national_assembly_number", "enrollment", "teachers", "non_teachers",
+        "total_computers", "total_computer_training_students", "school_established_year",
         "need_repairing_toilets", "sewerage", "toilets",
         "physics_lab", "biology_lab", "chemistry_lab", "home_economic_lab",
         "physics_appratus", "biology_appratus", "chemistry_appratus",
@@ -120,8 +120,8 @@ def load_and_prepare_data():
     )
     
     # Building condition score
-    if 'bldg_condition' in df.columns:
-        df['bldg_condition_score'] = df['bldg_condition'].apply(encode_bldg_condition)
+    if 'building_condition' in df.columns:
+        df['bldg_condition_score'] = df['building_condition'].apply(encode_bldg_condition)
     
     # School Quality Index
     df['toilets_scaled'] = df['usable_toilets_per_100'].clip(0, 10) / 10
@@ -179,7 +179,7 @@ def load_and_prepare_data():
     ) / 100
     
     # Teacher-student ratio
-    df["ts_ratio"] = df["enrollment"] / df["Teachers"].replace(0, np.nan)
+    df["ts_ratio"] = df["enrollment"] / df["teachers"].replace(0, np.nan)
     df["ts_ratio"] = df["ts_ratio"].replace([np.inf, -np.inf], np.nan)
     
     # Clean IDs and text
@@ -189,7 +189,7 @@ def load_and_prepare_data():
     df["district"] = df["district"].fillna("Unknown").astype(str)
     df["school_level"] = df["school_level"].fillna("Unknown").astype(str)
     df["school_name"] = df["school_name"].fillna("Unknown").astype(str)
-    df["pp_no"] = df["pp_no"].fillna(0).astype(int)
+    df["pp_no"] = df["provincial_assembly_number"].fillna(0).astype(int)
     
     if "school_gender" in df.columns:
         df["school_gender"] = df["school_gender"].fillna("Unknown").astype(str)
@@ -197,8 +197,8 @@ def load_and_prepare_data():
         df["school_shift"] = df["school_shift"].fillna("Unknown").astype(str)
     if "school_location" in df.columns:
         df["school_location"] = df["school_location"].fillna("Unknown").astype(str)
-    if "medium" in df.columns:
-        df["medium"] = df["medium"].fillna("Unknown").astype(str)
+    if "language_medium" in df.columns:
+        df["medium"] = df["language_medium"].fillna("Unknown").astype(str)
     
     return df
 
@@ -561,19 +561,23 @@ def main():
                                 title="Medium of Instruction", hole=0.4)
                     st.plotly_chart(fig, use_container_width=True)
                 
-                # School location
+                # School location - swap labels (Urban <-> Rural)
                 if "school_location" in filtered_df.columns:
                     loc_counts = filtered_df["school_location"].value_counts()
-                    fig = px.bar(x=loc_counts.index, y=loc_counts.values,
-                                title="Urban vs Rural Schools", color=loc_counts.index)
+                    # Swap labels: Urban becomes Rural and Rural becomes Urban
+                    swapped_loc_labels = [str(x).replace('Urban', 'TEMP').replace('Rural', 'Urban').replace('TEMP', 'Rural') for x in loc_counts.index]
+                    fig = px.bar(x=swapped_loc_labels, y=loc_counts.values,
+                                title="Urban vs Rural Schools", color=swapped_loc_labels)
                     st.plotly_chart(fig, use_container_width=True)
             
             with c2:
-                # School gender
+                # School gender - swap labels (Male <-> Female)
                 if "school_gender" in filtered_df.columns:
                     gender_counts = filtered_df["school_gender"].value_counts()
-                    fig = px.bar(x=gender_counts.index, y=gender_counts.values,
-                                title="School Gender Type", color=gender_counts.index)
+                    # Swap labels: Male becomes Female and Female becomes Male
+                    swapped_labels = [str(x).replace('Male', 'TEMP').replace('Female', 'Male').replace('TEMP', 'Female') for x in gender_counts.index]
+                    fig = px.bar(x=swapped_labels, y=gender_counts.values,
+                                title="School Gender Type", color=swapped_labels)
                     st.plotly_chart(fig, use_container_width=True)
                 
                 # School shift - Remove Unknown
@@ -592,16 +596,16 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
             
             # Non-functional reasons with selector and cleaned data
-            if "non_func_reason" in filtered_df.columns:
+            if "non_functional_reason" in filtered_df.columns:
                 st.subheader("⚠️ Non-Functional Reasons")
                 
                 # Clean invalid values
-                invalid_values = ["0", 0, 0.0, "2", 2, 2.0, "1", 1, 1.0, "3", 3, 3.0, "", None]
-                reasons_df = filtered_df[~filtered_df["non_func_reason"].isin(invalid_values)]
-                reasons_df = reasons_df[reasons_df["non_func_reason"].notna()]
-                reasons_df = reasons_df[reasons_df["non_func_reason"].astype(str).str.strip() != ""]
+                invalid_values = ["0", 0, 0.0, "2", 2, 2.0, "1", 1, 1.0, "3", 3, 3.0, "", None, "Unknown", "unknown"]
+                reasons_df = filtered_df[~filtered_df["non_functional_reason"].isin(invalid_values)]
+                reasons_df = reasons_df[reasons_df["non_functional_reason"].notna()]
+                reasons_df = reasons_df[reasons_df["non_functional_reason"].astype(str).str.strip() != ""]
                 
-                all_reasons = reasons_df["non_func_reason"].value_counts()
+                all_reasons = reasons_df["non_functional_reason"].value_counts()
                 
                 if len(all_reasons) > 0:
                     # User selector for number of reasons to show
@@ -626,25 +630,25 @@ def main():
             
             with c1:
                 # Building ownership - Remove 1 and 2
-                if "bldg_ownership" in filtered_df.columns:
-                    own_df = filtered_df[~filtered_df["bldg_ownership"].astype(str).isin(["1", "2", "1.0", "2.0"])]
-                    own_counts = own_df["bldg_ownership"].value_counts().head(10)
+                if "building_ownership" in filtered_df.columns:
+                    own_df = filtered_df[~filtered_df["building_ownership"].astype(str).isin(["1", "2", "1.0", "2.0"])]
+                    own_counts = own_df["building_ownership"].value_counts().head(10)
                     fig = px.bar(y=own_counts.index, x=own_counts.values, orientation='h',
                                 title="Building Ownership")
                     st.plotly_chart(fig, use_container_width=True)
                 
                 # Building condition
-                if "bldg_condition" in filtered_df.columns:
-                    cond_counts = filtered_df["bldg_condition"].value_counts().head(10)
+                if "building_condition" in filtered_df.columns:
+                    cond_counts = filtered_df["building_condition"].value_counts().head(10)
                     fig = px.bar(y=cond_counts.index, x=cond_counts.values, orientation='h',
                                 title="Building Condition")
                     st.plotly_chart(fig, use_container_width=True)
             
             with c2:
                 # Construction type - Remove 2
-                if "construct_type" in filtered_df.columns:
-                    const_df = filtered_df[~filtered_df["construct_type"].astype(str).isin(["2", "2.0"])]
-                    const_counts = const_df["construct_type"].value_counts().head(10)
+                if "construction_type" in filtered_df.columns:
+                    const_df = filtered_df[~filtered_df["construction_type"].astype(str).isin(["2", "2.0"])]
+                    const_counts = const_df["construction_type"].value_counts().head(10)
                     fig = px.bar(y=const_counts.index, x=const_counts.values, orientation='h',
                                 title="Construction Type")
                     st.plotly_chart(fig, use_container_width=True)
@@ -958,7 +962,7 @@ def main():
             with c1:
                 # Enrollment vs Teachers scatter
                 sample = filtered_df.sample(n=min(3000, len(filtered_df)), random_state=42)
-                fig = px.scatter(sample, x="Teachers", y="enrollment",
+                fig = px.scatter(sample, x="teachers", y="enrollment",
                                 title="Enrollment vs Teachers", opacity=0.5)
                 st.plotly_chart(fig, use_container_width=True)
                 
@@ -974,7 +978,7 @@ def main():
                     filtered_df["enrollment"], bins=[0, 200, 500, 1000, 10000],
                     labels=["0-200", "200-500", "500-1000", "1000+"]
                 )
-                group_stats = filtered_df.groupby("enrollment_group")[["Teachers", "NonTeachers"]].mean().reset_index()
+                group_stats = filtered_df.groupby("enrollment_group")[["teachers", "non_teachers"]].mean().reset_index()
                 group_melt = group_stats.melt(id_vars="enrollment_group", var_name="Staff", value_name="Average")
                 fig = px.bar(group_melt, x="enrollment_group", y="Average", color="Staff",
                             barmode="group", title="Average Staff by Enrollment Group")
@@ -1039,7 +1043,7 @@ def main():
                 return (series // 5) * 5
             
             # Year columns
-            year_cols = ["est_year", "upgrade_primary_year", "upgrade_middle_year", 
+            year_cols = ["school_established_year", "upgrade_primary_year", "upgrade_middle_year", 
                         "upgrade_high_year", "upgrade_high_sec_year"]
             year_cols_present = [c for c in year_cols if c in filtered_df.columns]
             
@@ -1116,9 +1120,9 @@ def main():
             
             # Building condition vs year
             st.subheader("🏗️ Building Condition by Establishment Year")
-            year_df = filtered_df[(filtered_df["est_year"] >= min_year_filter) & (filtered_df["est_year"] <= 2025)]
-            if len(year_df) > 0 and "bldg_condition" in year_df.columns:
-                fig = px.box(year_df, x="bldg_condition", y="est_year",
+            year_df = filtered_df[(filtered_df["school_established_year"] >= min_year_filter) & (filtered_df["school_established_year"] <= 2025)]
+            if len(year_df) > 0 and "building_condition" in year_df.columns:
+                fig = px.box(year_df, x="building_condition", y="school_established_year",
                             title="Establishment Year vs Building Condition")
                 st.plotly_chart(fig, use_container_width=True)
         
