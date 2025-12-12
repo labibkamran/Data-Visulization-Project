@@ -1163,74 +1163,29 @@ def main():
             st.header("KPK Non-Functional Schools Analysis (2021)")
             st.markdown("*Analysis of Government Primary and Middle Schools in KPK Province*")
             
-            # Load KPK data
+            # Load KPK data from combined CSV
             @st.cache_data
             def load_kpk_data():
-                # Try multiple paths
-                primary_paths = [
-                    "number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv",
-                    "non-asher-cleaned/number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv",
-                    "NON_ASER_EXCEL_SHEETS/number-of-govt-primary-schools-non-functional-2021-numbers-kpk-pakistan.csv"
-                ]
-                middle_paths = [
-                    "number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv",
-                    "non-asher-cleaned/number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv",
-                    "NON_ASER_EXCEL_SHEETS/number-of-govt-middle-schools-non-functional-2021-numbers-kpk-pakistan.csv"
-                ]
-                
-                primary = None
-                middle = None
-                
-                for path in primary_paths:
-                    try:
-                        primary = pd.read_csv(path, encoding='latin1')
-                        break
-                    except:
-                        continue
-                
-                for path in middle_paths:
-                    try:
-                        middle = pd.read_csv(path, encoding='latin1')
-                        break
-                    except:
-                        continue
-                
-                if primary is None or middle is None:
-                    return None, None
-                
                 try:
-                    # Clean column names
-                    if primary.columns[0].startswith('\ufeff'):
-                        primary.rename(columns={primary.columns[0]: "District"}, inplace=True)
-                    elif 'District' not in primary.columns:
-                        primary.rename(columns={primary.columns[0]: "District"}, inplace=True)
-                        
-                    if middle.columns[0].startswith('\ufeff'):
-                        middle.rename(columns={middle.columns[0]: "District"}, inplace=True)
-                    elif 'District' not in middle.columns:
-                        middle.rename(columns={middle.columns[0]: "District"}, inplace=True)
+                    # Load combined dataset
+                    df = pd.read_csv("kpk_non_functional_schools_combined.csv")
                     
-                    # Clean primary
-                    primary = primary.dropna(subset=['District']).copy()
+                    # Clean data
+                    df = df.dropna(subset=['District']).copy()
                     for col in ['Male', 'Female', 'Total']:
-                        if col in primary.columns:
-                            primary[col] = pd.to_numeric(primary[col], errors='coerce').fillna(0)
-                    primary['Level'] = 'Primary'
-                    primary['female_share'] = primary['Female'] / primary['Total'].replace(0, np.nan)
-                    primary['male_share'] = primary['Male'] / primary['Total'].replace(0, np.nan)
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                     
-                    # Clean middle
-                    middle = middle.dropna(subset=['District']).copy()
-                    for col in ['Male', 'Female', 'Total']:
-                        if col in middle.columns:
-                            middle[col] = pd.to_numeric(middle[col], errors='coerce').fillna(0)
-                    middle['Level'] = 'Middle'
-                    middle['female_share'] = middle['Female'] / middle['Total'].replace(0, np.nan)
-                    middle['male_share'] = middle['Male'] / middle['Total'].replace(0, np.nan)
+                    # Calculate shares
+                    df['female_share'] = df['Female'] / df['Total'].replace(0, np.nan)
+                    df['male_share'] = df['Male'] / df['Total'].replace(0, np.nan)
+                    
+                    # Split by level
+                    primary = df[df['Level'] == 'Primary'].copy()
+                    middle = df[df['Level'] == 'Middle'].copy()
                     
                     return primary, middle
                 except Exception as e:
-                    st.error(f"Error processing KPK data: {e}")
+                    st.error(f"Error loading KPK data: {e}")
                     return None, None
             
             primary, middle = load_kpk_data()
